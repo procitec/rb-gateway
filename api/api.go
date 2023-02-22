@@ -81,7 +81,7 @@ func New(cfg *config.Config) (*API, error) {
 
 	addRoutes(repoRouter, []routingEntry{
 		{[]string{"GET"}, "/branches", http.HandlerFunc(api.getBranches)},
-		{[]string{"GET"}, "/branches/{branch}/commits", http.HandlerFunc(api.getCommits)},
+		{[]string{"GET"}, "/branches/{branch:.*}/commits", http.HandlerFunc(api.getCommits)},
 		{[]string{"GET"}, "/commits/{commit-id}", http.HandlerFunc(api.getCommit)},
 		{[]string{"GET"}, "/commits/{commit-id}/path/{path}", http.HandlerFunc(api.getFileByCommit)},
 		{[]string{"HEAD"}, "/commits/{commit-id}/path/{path}", http.HandlerFunc(api.getFileExistsByCommit)},
