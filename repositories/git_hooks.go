@@ -110,41 +110,13 @@ func (repo *GitRepository) InstallHooks(cfgPath string, force bool) (err error) 
 // they already exist.
 func (repo *GitRepository) installHook(hookDir string, hookData *gitHookData, force bool) (err error) {
 	dispatchPath := filepath.Join(hookDir, hookData.HookName)
-	scriptDir := filepath.Join(hookDir, fmt.Sprintf("%s.d", hookData.HookName))
-	scriptPath := filepath.Join(scriptDir, fmt.Sprintf("99-rbgateway-%s-event.sh", hookData.Event))
+	scriptPath := filepath.Join(hookDir, fmt.Sprintf("%s.rbgateway-%s-event.sh", hookData.HookName, hookData.Event))
 
-	var created bool
-
-	if created, err = ensureDir(scriptDir); err != nil {
+	userHomeDir, err := os.UserHomeDir()
+	if err != nil {
 		return
 	}
-
-	if created {
-		renamedPath := filepath.Join(scriptDir, fmt.Sprintf("00-original-%s", hookData.HookName))
-
-		// If there is an existing hook in .git/hooks/, we copy it into the
-		// script dir so that it will still be executed after we install our
-		// dispatcher.
-		if _, err = os.Stat(dispatchPath); err != nil && !os.IsNotExist(err) {
-			return
-		} else if err == nil {
-			if err = os.Rename(dispatchPath, renamedPath); err != nil {
-				return
-			}
-
-			defer func() {
-				// Something went wrong so we are going to try to restore the
-				// filesystem to near its original state.
-				log.Printf(`Restoring filesystem to original state for hook "%s"`, hookData.HookName)
-				if err != nil {
-					if err = os.Rename(renamedPath, dispatchPath); err != nil {
-						log.Println("Could not restore filesystem after error: ", err.Error())
-					}
-
-				}
-			}()
-		}
-	}
+	multiHookDriver := filepath.Join(userHomeDir, ".gitolite/local/hooks/multi-hook-driver")
 
 	// If the script to trigger `rbgateway trigger-webhooks` does not exist, create it.
 	if _, err = os.Stat(scriptPath); force || os.IsNotExist(err) {
@@ -166,18 +138,10 @@ func (repo *GitRepository) installHook(hookDir string, hookData *gitHookData, fo
 
 	// If the dispatch script does not exist, create it.
 	if _, err = os.Stat(dispatchPath); force || os.IsNotExist(err) {
-		t := template.Must(template.New(dispatchPath).Parse(gitHookDispatchScriptTemplate))
-
-		var f *os.File
-		if f, err = os.OpenFile(dispatchPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0700); err != nil {
+		if err = os.Symlink(dispatchPath, multiHookDriver); err != nil {
 			return
 		}
-
-		defer f.Close()
-
-		if err = t.Execute(f, hookData); err != nil {
-			return
-		}
+		log.Printf(`Installed multi-hook-driver in "%s"`, dispatchPath)
 	} else if err != nil {
 		return
 	}
