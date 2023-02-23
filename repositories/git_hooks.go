@@ -75,6 +75,10 @@ func (repo *GitRepository) InstallHooks(cfgPath string, force bool) (err error) 
 		return
 	}
 
+	if cfgPath, err = filepath.Abs(cfgPath); err != nil {
+		return
+	}
+
 	hookData := gitHookData{
 		ConfigPath: shellquote.Join(cfgPath),
 		ExePath:    shellquote.Join(exePath),
